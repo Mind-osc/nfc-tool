@@ -5,6 +5,9 @@ import android.nfc.NdefMessage
 import android.nfc.NdefRecord
 import android.nfc.NfcAdapter
 import android.nfc.Tag
+import android.nfc.TagLostException
+import android.nfc.FormatException
+import java.io.IOException
 import android.nfc.tech.Ndef
 import android.nfc.tech.NdefFormatable
 import android.os.Bundle
@@ -98,7 +101,8 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
         }
         val flags = NfcAdapter.FLAG_READER_NFC_A or NfcAdapter.FLAG_READER_NFC_B or
                 NfcAdapter.FLAG_READER_NFC_F or NfcAdapter.FLAG_READER_NFC_V
-        adapter.enableReaderMode(this, this, flags, null)
+        val extras = Bundle().apply { putInt(NfcAdapter.EXTRA_READER_PRESENCE_CHECK_DELAY, 1000) }
+        adapter.enableReaderMode(this, this, flags, extras)
     }
 
     override fun onPause() {
@@ -174,7 +178,7 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
                     }
                 }
             } catch (e: Exception) {
-                "❌ Σφάλμα εγγραφής: ${e.message}"
+                explain(e)
             } finally {
                 runCatching { ndef.close() }
             }
@@ -184,12 +188,19 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
                 f.connect(); f.format(msg)
                 "✅ Φορμαρίστηκε και γράφτηκε ($size bytes)"
             } catch (e: Exception) {
-                "❌ Σφάλμα φορμαρίσματος: ${e.message}"
+                explain(e)
             } finally {
                 runCatching { f.close() }
             }
         }
         return "❌ Το tag δεν υποστηρίζει NDEF"
+    }
+
+    private fun explain(e: Exception): String = when (e) {
+        is TagLostException -> "❌ Το tag χάθηκε στη μέση. Κράτα το κινητό ακίνητο πάνω στο tag 2–3 δευτερόλεπτα και ξαναδοκίμασε."
+        is FormatException -> "❌ Λάθος μορφή δεδομένων."
+        is IOException -> "❌ Το tag αρνήθηκε την εγγραφή.\nΣυνήθως σημαίνει ότι προστατεύεται με κωδικό (password) από τον κατασκευαστή — συμβαίνει σε ετικέτες προϊόντων/εξοπλισμού. Δοκίμασε με κενό tag (NTAG213/215/216).\n(${e.javaClass.simpleName}${e.message?.let { ": $it" } ?: ""})"
+        else -> "❌ Σφάλμα: ${e.javaClass.simpleName}${e.message?.let { ": $it" } ?: ""}"
     }
 
     private fun ByteArray.toHex() = joinToString(":") { "%02X".format(it) }
