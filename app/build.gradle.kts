@@ -11,8 +11,20 @@ android {
         applicationId = "com.example.nfctool"
         minSdk = 21
         targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.1"
+    }
+
+    signingConfigs {
+        create("fixed") {
+            storeFile = file("nfctool.keystore")
+            storePassword = "nfctool123"
+            keyAlias = "nfctool"
+            keyPassword = "nfctool123"
+        }
+    }
+    buildTypes {
+        getByName("debug") { signingConfig = signingConfigs.getByName("fixed") }
     }
 
     compileOptions {

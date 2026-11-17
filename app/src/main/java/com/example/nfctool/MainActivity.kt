@@ -54,8 +54,15 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
             text = "✍️ Εγγραφή σε tag"
             setOnClickListener { armWrite() }
         }
+        val eraseBtn = Button(this).apply {
+            text = "🗑️ Διαγραφή tag"
+            setOnClickListener {
+                pendingWrite = NdefMessage(arrayOf(NdefRecord(NdefRecord.TNF_EMPTY, null, null, null)))
+                status.text = "🗑️ Έτοιμο για διαγραφή — πλησίασε το tag"
+            }
+        }
         val cancelBtn = Button(this).apply {
-            text = "Ακύρωση εγγραφής"
+            text = "Ακύρωση"
             setOnClickListener {
                 pendingWrite = null
                 status.text = "📖 Λειτουργία ανάγνωσης — πλησίασε ένα tag"
@@ -66,7 +73,7 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
             setTextIsSelectable(true)
             setPadding(0, pad, 0, 0)
         }
-        listOf(status, typeGroup, input, writeBtn, cancelBtn, output).forEach(root::addView)
+        listOf(status, typeGroup, input, writeBtn, eraseBtn, cancelBtn, output).forEach(root::addView)
         return ScrollView(this).apply { addView(root) }
     }
 
@@ -124,7 +131,7 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
             sb.append("Χωρητικότητα: ${ndef.maxSize} bytes\n")
             sb.append("Εγγράψιμο: ${if (ndef.isWritable) "Ναι" else "Όχι"}\n\n")
             val message = ndef.ndefMessage
-            if (message == null || message.records.isEmpty()) {
+            if (message == null || message.records.all { it.tnf == NdefRecord.TNF_EMPTY }) {
                 sb.append("(Κενό tag)")
             } else {
                 message.records.forEachIndexed { i, r -> sb.append("Εγγραφή ${i + 1}: ${parseRecord(r)}\n") }
@@ -160,7 +167,11 @@ class MainActivity : AppCompatActivity(), NfcAdapter.ReaderCallback {
                 when {
                     !ndef.isWritable -> "❌ Το tag είναι κλειδωμένο (read-only)"
                     ndef.maxSize < size -> "❌ Δεν χωράει: $size / ${ndef.maxSize} bytes"
-                    else -> { ndef.writeNdefMessage(msg); "✅ Γράφτηκε επιτυχώς ($size bytes)" }
+                    else -> {
+                        ndef.writeNdefMessage(msg)
+                        if (msg.records[0].tnf == NdefRecord.TNF_EMPTY) "✅ Το tag διαγράφηκε"
+                        else "✅ Γράφτηκε επιτυχώς ($size bytes)"
+                    }
                 }
             } catch (e: Exception) {
                 "❌ Σφάλμα εγγραφής: ${e.message}"
